@@ -1,0 +1,97 @@
+#!/usr/bin/env bash
+
+set -o errexit
+set -o pipefail
+
+function new {
+  # Check arguments, set variables, create a directory, enter it and copy this file across
+  if [[ $# -eq 0 ]]; then
+    echo -e "Usage: \n whales new APP_PATH [options]"
+    exit 1
+  fi
+  APP_PATH=$1
+  OPTIONS=${@:2}
+  if [[ ! -d $APP_PATH ]]; then 
+    mkdir $APP_PATH;
+  fi 
+  cd $APP_PATH
+  cp ../whales whales
+  chmod +x ./whales
+
+  # Create the development Dockerfile
+cat <<- EOF > Dockerfile.dev
+ARG RUBY_VERSION=3.3.2
+FROM ruby
+RUN curl -sL https://deb.nodesource.com/setup_current.x | bash - && \\
+apt-get update && \\
+apt-get install --yes --no-install-recommends nodejs && \\
+npm install -g yarn
+WORKDIR /$APP_PATH
+VOLUME /bundle
+RUN bundle config set --global path '/bundle'
+ENV PATH="/bundle/ruby/\$RUBY_VERSION/bin:\${PATH}"
+RUN gem install rails
+ENV BINDING="0.0.0.0"
+ENTRYPOINT [""]
+EOF
+
+  # Create the image and a volume to store gem bins
+  docker build -f Dockerfile.dev -t $APP_PATH-image .
+  docker volume create $APP_PATH-bundle-cache
+
+  # Call `rails new` and generate the prod Dockerfile and the prod docker-compose.yml
+  docker run --rm -it -v ${PWD}:/$APP_PATH -v $APP_PATH-bundle-cache:/bundle $APP_PATH-image rails new . $OPTIONS
+  docker run --rm -it -v ${PWD}:/$APP_PATH -v $APP_PATH-bundle-cache:/bundle $APP_PATH-image bundle add dockerfile-rails --optimistic --group=development
+  docker run --rm -it -v ${PWD}:/$APP_PATH -v $APP_PATH-bundle-cache:/bundle $APP_PATH-image rails generate dockerfile --compose
+  
+  # Copy the prod docker-compose.yml and edit it for use in development
+  cp docker-compose.yml docker-compose-dev.yml
+  mkdir vendor/whales
+cat <<- EOF > vendor/whales/recompose.rb
+require 'yaml'
+compose_file = YAML.load_file('docker-compose-dev.yml')
+compose_file['services']['web']['build']['dockerfile'] = 'Dockerfile.dev'
+compose_file['services']['web']['command'] = 'rails s'
+compose_file['services']['web']['volumes'] = ['.:/$APP_PATH', '$APP_PATH-bundle-cache:/bundle']
+compose_file['volumes'] = { "$APP_PATH-bundle-cache" => { "external" => true } }
+File.open("docker-compose-dev.yml", "w") { 
+  |file| file.write(compose_file.to_yaml) 
+}
+EOF
+  docker run --rm -it -v ${PWD}:/$APP_PATH -v $APP_PATH-bundle-cache:/bundle $APP_PATH-image ruby vendor/whales/recompose.rb
+}
+
+function compose {
+  docker compose -f docker-compose-dev.yml "${@}"
+}
+
+function up {
+  compose up 
+}
+
+function down {
+  compose down
+}
+
+function build {
+  compose build
+}
+
+function bash {
+  compose exec web bash
+}
+
+function run {
+  compose run --rm "${@}"
+}
+
+function recompose {
+  run web ruby vendor/whales/recompose.rb
+}
+
+function rails {
+  run web rails "${@}"
+}
+
+TIMEFORMAT=$'\nTask completed in %3lR'
+time "${@:-new}"
