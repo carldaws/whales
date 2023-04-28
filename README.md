@@ -29,7 +29,13 @@ whales new weblog -d=postgresql -j=esbuild
 cd weblog
 ```
 
-3. Create the database, generate a scaffold, run a migration:
+3. Build the development enviroment:
+
+```
+whales build
+```
+
+4. Create the database, generate a scaffold, run a migration:
 
 ```
 whales rails db:create
@@ -37,7 +43,7 @@ whales rails g scaffold post title:string body:text
 whales rails db:migrate
 ```
 
-4. Start the container(s):
+5. Start the container(s):
 
 ```
 whales up
