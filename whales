@@ -20,7 +20,7 @@ function new {
 
   # Create the development Dockerfile
 cat <<- EOF > Dockerfile.dev
-ARG RUBY_VERSION=3.3.2
+ARG RUBY_VERSION=3.2.2
 FROM ruby
 RUN curl -sL https://deb.nodesource.com/setup_current.x | bash - && \\
 apt-get update && \\
