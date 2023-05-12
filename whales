@@ -51,7 +51,12 @@ cat <<- EOF > vendor/whales/recompose.rb
 require 'yaml'
 compose_file = YAML.load_file('docker-compose-dev.yml')
 compose_file['services']['web']['build']['dockerfile'] = 'Dockerfile.dev'
-compose_file['services']['web']['command'] = 'rails s'
+if File.exist? 'bin/dev'
+  compose_file['services']['web']['command'] = 'bash -c "rm -f tmp/pids/server.pid && bin/dev"'
+  compose_file['services']['web']['tty'] = 'true'
+else
+  compose_file['services']['web']['command'] = 'bash -c "rm -f tmp/pids/server.pid && bin/rails s"'
+end
 compose_file['services']['web']['volumes'] = ['.:/$APP_PATH', '$APP_PATH-bundle-cache:/bundle']
 compose_file['volumes'] = { "$APP_PATH-bundle-cache" => { "external" => true } }
 File.open("docker-compose-dev.yml", "w") { 
@@ -59,6 +64,8 @@ File.open("docker-compose-dev.yml", "w") {
 }
 EOF
   docker run --rm -it -v ${PWD}:/$APP_PATH -v $APP_PATH-bundle-cache:/bundle $APP_PATH-image ruby vendor/whales/recompose.rb
+
+  docker compose -f docker-compose-dev.yml build
 }
 
 function compose {
@@ -91,6 +98,14 @@ function recompose {
 
 function rails {
   run web rails "${@}"
+}
+
+function bundle {
+  run web bundle "${@}"
+}
+
+function rspec {
+  bundle exec rspec "${@}"
 }
 
 TIMEFORMAT=$'\nTask completed in %3lR'
