@@ -29,13 +29,7 @@ whales new weblog -d=postgresql -j=esbuild
 cd weblog
 ```
 
-3. Build the development enviroment:
-
-```
-whales build
-```
-
-4. Create the database, generate a scaffold, run a migration:
+3. Create the database, generate a scaffold, run a migration:
 
 ```
 whales rails db:create
@@ -43,7 +37,7 @@ whales rails g scaffold post title:string body:text
 whales rails db:migrate
 ```
 
-5. Start the container(s):
+4. Start the container(s):
 
 ```
 whales up
@@ -57,7 +51,7 @@ whales up
 
 `whales compose`: Run any `docker compose` command in the development environment
 
-`whales up`: Start the containers for the development environment
+`whales up`: Start the containers for the development environment (using the bin/dev script if using css or js bundling)
 
 `whales down`: Stop the development containers
 
@@ -70,3 +64,7 @@ whales up
 `whales recompose`: Regenerate the development docker-compose file (to be used after regenerating the Dockerfile using `rails generate dockerfile --compose`)
 
 `whales rails`: Execute a single `rails` command against the web / Rails service, and remove the container when finished
+
+`whales bundle`: Executes a single `bundle` command against the web / Rails service, and remove the container when finished
+
+`whales rspec`: Executes the equivalent of a `bundle exec rspec` command (requires you to install the rspec-rails gem and run `whales rails g rspec:install` first)
